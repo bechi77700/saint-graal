@@ -85,10 +85,8 @@ export default function BrandForm({ project, onSave }: Props) {
         body: JSON.stringify(formData),
       });
 
-      if (!res.ok || !res.body) throw new Error('Erreur serveur');
-
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Generation failed');
+      if (!res.ok) throw new Error(data.error || 'Erreur serveur');
 
       setResults(data.results);
       setAvatar(data.avatar);
