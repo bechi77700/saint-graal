@@ -28,6 +28,7 @@ export default function BrandForm({ project, onSave }: Props) {
 
   const [view, setView] = useState<ViewMode>(project.results ? 'results' : 'form');
   const [generating, setGenerating] = useState(false);
+  const [generatingStep, setGeneratingStep] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<SaintGraalResults | null>(project.results);
@@ -73,6 +74,7 @@ export default function BrandForm({ project, onSave }: Props) {
 
     setError(null);
     setGenerating(true);
+    setGeneratingStep('Connexion au modèle…');
 
     await onSave({ ...formData, status: 'generating' });
 
@@ -83,20 +85,40 @@ export default function BrandForm({ project, onSave }: Props) {
         body: JSON.stringify(formData),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Generation failed');
+      if (!res.ok || !res.body) throw new Error('Erreur serveur');
 
-      setResults(data.results);
-      setAvatar(data.avatar);
-      setView('results');
-      setDirty(false);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-      await onSave({ ...formData, results: data.results, avatar: data.avatar, status: 'done' });
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = JSON.parse(line.slice(6));
+          if (data.status === 'generating') {
+            setGeneratingStep(data.message);
+          } else if (data.status === 'done') {
+            setResults(data.results);
+            setAvatar(data.avatar);
+            setView('results');
+            setDirty(false);
+            await onSave({ ...formData, results: data.results, avatar: data.avatar, status: 'done' });
+          } else if (data.status === 'error') {
+            throw new Error(data.error);
+          }
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Generation failed');
       await onSave({ status: 'error' });
     } finally {
       setGenerating(false);
+      setGeneratingStep('');
     }
   }
 
@@ -169,7 +191,7 @@ export default function BrandForm({ project, onSave }: Props) {
         <div className="mx-5 mt-3 px-4 py-2.5 shimmer bg-bg-card border border-accent-gold/20 rounded-md">
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-accent-gold animate-pulse" />
-            <p className="text-accent-gold text-xs">Generating Saint Graal + Avatar documents in parallel…</p>
+            <p className="text-accent-gold text-xs">{generatingStep || 'Génération Saint Graal + Avatar en parallèle…'}</p>
           </div>
         </div>
       )}
