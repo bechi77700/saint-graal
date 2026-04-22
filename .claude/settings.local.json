@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Read(//usr/local/bin/**)",
+      "Read(//Users/eliesbechahed/.volta/**)",
+      "Bash(command -v node)",
+      "Read(//Users/eliesbechahed/**)",
+      "Read(//Users/eliesbechahed/Library/**)",
+      "Bash(chmod +x \"/Users/eliesbechahed/Downloads/SAAS internes claude/Saint graal generator/setup.sh\")"
+    ]
+  }
+}

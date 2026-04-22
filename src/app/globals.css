@@ -1,0 +1,124 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background-color: #080B10;
+  color: #F9FAFB;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0D1117;
+}
+::-webkit-scrollbar-thumb {
+  background: #1F2937;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+}
+
+/* Selection */
+::selection {
+  background: rgba(212, 175, 55, 0.2);
+  color: #F9FAFB;
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-accent-gold text-bg-base font-semibold text-sm rounded-md
+           hover:bg-accent-gold-dim transition-colors duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-bg-card border border-bg-border text-text-secondary text-sm rounded-md
+           hover:border-accent-gold hover:text-text-primary transition-colors duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-danger {
+    @apply px-3 py-1.5 bg-transparent border border-accent-red/40 text-accent-red text-xs rounded-md
+           hover:bg-accent-red/10 transition-colors duration-150;
+  }
+
+  .input-field {
+    @apply w-full bg-bg-elevated border border-bg-border rounded-md px-3 py-2
+           text-text-primary text-sm placeholder-text-muted
+           focus:outline-none focus:border-accent-gold/60 focus:ring-1 focus:ring-accent-gold/20
+           transition-colors duration-150;
+  }
+
+  .card {
+    @apply bg-bg-card border border-bg-border rounded-lg;
+  }
+
+  .section-tag {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium
+           border transition-all duration-150 cursor-pointer select-none;
+  }
+
+  .section-tag-active {
+    @apply bg-accent-gold/10 border-accent-gold/40 text-accent-gold;
+  }
+
+  .section-tag-inactive {
+    @apply bg-bg-elevated border-bg-border text-text-secondary hover:border-text-muted hover:text-text-primary;
+  }
+
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 25%,
+      rgba(212, 175, 55, 0.05) 50%,
+      transparent 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Prose-like result content */
+.result-content h3 {
+  color: #D4AF37;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.result-content ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+.result-content li {
+  margin-bottom: 0.25rem;
+}
+.result-content p {
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
