@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { buildSaintGraalPrompt, buildAvatarPrompt } from '@/lib/prompts';
 import type { ProjectFormData, Competitor } from '@/lib/types';
@@ -31,56 +32,34 @@ function extractJSON(text: string): unknown {
   return JSON.parse(raw.slice(start, end + 1));
 }
 
-async function callClaude(content: ContentBlock[], maxTokens: number): Promise<string> {
-  const response = await anthropic.messages.create({
-    model: MODEL,
-    max_tokens: maxTokens,
-    messages: [{ role: 'user', content }],
-  });
-  return response.content[0].type === 'text' ? response.content[0].text : '';
-}
-
 export async function POST(req: Request) {
-  const encoder = new TextEncoder();
+  try {
+    const body: ProjectFormData = await req.json();
 
-  const body: ProjectFormData = await req.json();
+    const [saintGraalRes, avatarRes] = await Promise.all([
+      anthropic.messages.create({
+        model: MODEL,
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: buildContentBlocks(buildSaintGraalPrompt(body), body.competitors) }],
+      }),
+      anthropic.messages.create({
+        model: MODEL,
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: buildContentBlocks(buildAvatarPrompt(body), body.competitors) }],
+      }),
+    ]);
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      const send = (data: object) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
-      };
+    const saintGraalText = saintGraalRes.content[0].type === 'text' ? saintGraalRes.content[0].text : '';
+    const avatarText = avatarRes.content[0].type === 'text' ? avatarRes.content[0].text : '';
 
-      const heartbeat = setInterval(() => {
-        try { send({ status: 'heartbeat' }); } catch {}
-      }, 5000);
-
-      try {
-        send({ status: 'generating', message: 'Génération en cours…' });
-
-        const [saintGraalText, avatarText] = await Promise.all([
-          callClaude(buildContentBlocks(buildSaintGraalPrompt(body), body.competitors), 2500),
-          callClaude(buildContentBlocks(buildAvatarPrompt(body), body.competitors), 1200),
-        ]);
-
-        send({ status: 'done', results: extractJSON(saintGraalText), avatar: extractJSON(avatarText) });
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        send({ status: 'error', error: msg });
-      } finally {
-        clearInterval(heartbeat);
-        controller.close();
-      }
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-    },
-  });
+    return NextResponse.json({
+      results: extractJSON(saintGraalText),
+      avatar: extractJSON(avatarText),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Generation failed';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export const maxDuration = 60;
