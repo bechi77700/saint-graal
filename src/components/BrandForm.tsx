@@ -100,6 +100,7 @@ export default function BrandForm({ project, onSave }: Props) {
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
           const data = JSON.parse(line.slice(6));
+          if (data.status === 'heartbeat') continue;
           if (data.status === 'generating') {
             setGeneratingStep(data.message);
           } else if (data.status === 'done') {

@@ -51,6 +51,10 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
       };
 
+      const heartbeat = setInterval(() => {
+        try { send({ status: 'heartbeat' }); } catch {}
+      }, 5000);
+
       try {
         send({ status: 'generating', message: 'Génération en cours…' });
 
@@ -61,8 +65,10 @@ export async function POST(req: Request) {
 
         send({ status: 'done', results: extractJSON(saintGraalText), avatar: extractJSON(avatarText) });
       } catch (error) {
-        send({ status: 'error', error: error instanceof Error ? error.message : 'Generation failed' });
+        const msg = error instanceof Error ? error.message : String(error);
+        send({ status: 'error', error: msg });
       } finally {
+        clearInterval(heartbeat);
         controller.close();
       }
     },
