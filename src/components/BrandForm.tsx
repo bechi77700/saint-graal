@@ -90,6 +90,9 @@ export default function BrandForm({ project, onSave }: Props) {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      const timeout = setTimeout(() => {
+        reader.cancel();
+      }, 45000);
 
       while (true) {
         const { done, value } = await reader.read();
@@ -115,7 +118,8 @@ export default function BrandForm({ project, onSave }: Props) {
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Generation failed');
+      const msg = err instanceof Error ? err.message : 'Generation failed';
+      setError(msg.includes('cancel') ? 'Timeout — réessaie, ça prend trop de temps' : msg);
       await onSave({ status: 'error' });
     } finally {
       setGenerating(false);

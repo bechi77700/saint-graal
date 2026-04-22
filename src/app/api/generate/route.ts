@@ -59,8 +59,8 @@ export async function POST(req: Request) {
         send({ status: 'generating', message: 'Génération en cours…' });
 
         const [saintGraalText, avatarText] = await Promise.all([
-          callClaude(buildContentBlocks(buildSaintGraalPrompt(body), body.competitors), 5000),
-          callClaude(buildContentBlocks(buildAvatarPrompt(body), body.competitors), 2500),
+          callClaude(buildContentBlocks(buildSaintGraalPrompt(body), body.competitors), 2500),
+          callClaude(buildContentBlocks(buildAvatarPrompt(body), body.competitors), 1200),
         ]);
 
         send({ status: 'done', results: extractJSON(saintGraalText), avatar: extractJSON(avatarText) });
