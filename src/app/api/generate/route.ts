@@ -8,33 +8,23 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const MODEL = 'claude-sonnet-4-6';
 
 type ImageMediaType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+type ContentBlock = Anthropic.TextBlockParam | Anthropic.ImageBlockParam | Anthropic.DocumentBlockParam;
 
-function buildContentBlocks(
-  text: string,
-  competitors: Competitor[]
-): Anthropic.MessageParam['content'] {
-  const blocks: Anthropic.MessageParam['content'] = [{ type: 'text', text }];
+function buildContentBlocks(text: string, competitors: Competitor[]): ContentBlock[] {
+  const blocks: ContentBlock[] = [{ type: 'text', text }];
 
   for (const competitor of competitors) {
     for (const file of competitor.files) {
       if (file.type === 'application/pdf') {
         blocks.push({
           type: 'document',
-          source: {
-            type: 'base64',
-            media_type: 'application/pdf',
-            data: file.base64,
-          },
-        } as Anthropic.MessageParam['content'][number]);
+          source: { type: 'base64', media_type: 'application/pdf', data: file.base64 },
+        } as Anthropic.DocumentBlockParam);
       } else if (file.type.startsWith('image/')) {
         blocks.push({
           type: 'image',
-          source: {
-            type: 'base64',
-            media_type: file.type as ImageMediaType,
-            data: file.base64,
-          },
-        } as Anthropic.MessageParam['content'][number]);
+          source: { type: 'base64', media_type: file.type as ImageMediaType, data: file.base64 },
+        } as Anthropic.ImageBlockParam);
       }
     }
   }
