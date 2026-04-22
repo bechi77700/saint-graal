@@ -31,55 +31,44 @@ function extractJSON(text: string): unknown {
   return JSON.parse(raw.slice(start, end + 1));
 }
 
-async function streamCompletion(content: ContentBlock[], maxTokens: number): Promise<string> {
-  let text = '';
-  const stream = anthropic.messages.stream({
+async function callClaude(content: ContentBlock[], maxTokens: number): Promise<string> {
+  const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: maxTokens,
     messages: [{ role: 'user', content }],
   });
-  for await (const event of stream) {
-    if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-      text += event.delta.text;
-    }
-  }
-  return text;
+  return response.content[0].type === 'text' ? response.content[0].text : '';
 }
 
 export async function POST(req: Request) {
   const encoder = new TextEncoder();
 
-  const stream = new TransformStream();
-  const writer = stream.writable.getWriter();
+  const body: ProjectFormData = await req.json();
 
-  const send = async (data: object) => {
-    await writer.write(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
-  };
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (data: object) => {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+      };
 
-  (async () => {
-    try {
-      const body: ProjectFormData = await req.json();
+      try {
+        send({ status: 'generating', message: 'Génération en cours…' });
 
-      await send({ status: 'generating', message: 'Génération en cours…' });
+        const [saintGraalText, avatarText] = await Promise.all([
+          callClaude(buildContentBlocks(buildSaintGraalPrompt(body), body.competitors), 5000),
+          callClaude(buildContentBlocks(buildAvatarPrompt(body), body.competitors), 2500),
+        ]);
 
-      const [saintGraalText, avatarText] = await Promise.all([
-        streamCompletion(buildContentBlocks(buildSaintGraalPrompt(body), body.competitors), 6000),
-        streamCompletion(buildContentBlocks(buildAvatarPrompt(body), body.competitors), 3000),
-      ]);
+        send({ status: 'done', results: extractJSON(saintGraalText), avatar: extractJSON(avatarText) });
+      } catch (error) {
+        send({ status: 'error', error: error instanceof Error ? error.message : 'Generation failed' });
+      } finally {
+        controller.close();
+      }
+    },
+  });
 
-      const results = extractJSON(saintGraalText);
-      const avatar = extractJSON(avatarText);
-
-      await send({ status: 'done', results, avatar });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Generation failed';
-      await send({ status: 'error', error: message });
-    } finally {
-      await writer.close();
-    }
-  })();
-
-  return new Response(stream.readable, {
+  return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -88,4 +77,4 @@ export async function POST(req: Request) {
   });
 }
 
-export const maxDuration = 120;
+export const maxDuration = 60;
