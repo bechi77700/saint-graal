@@ -3,59 +3,33 @@ import { NextResponse } from 'next/server';
 import type { ProjectFormData } from '@/lib/types';
 import { SECTION_LABELS } from '@/lib/types';
 
-export const runtime = 'edge';
+export const maxDuration = 60;
 
 const MODEL = 'claude-sonnet-4-6';
-
 const MARKET_LABELS: Record<string, string> = { US: 'United States', FR: 'France', DE: 'Germany' };
 
-function buildCombinedPrompt(data: ProjectFormData): string {
+function buildPrompt(data: ProjectFormData): string {
   const market = MARKET_LABELS[data.market] || data.market;
   const sections = data.sections.map((s) => SECTION_LABELS[s]).join(', ');
-  const competitors = data.competitors.map((c, i) => `${i + 1}. ${c.url || 'N/A'}`).join('\n');
 
-  return `Expert e-commerce market researcher for Meta Ads cold traffic. Generate a Saint Graal research document AND a customer avatar for this brand.
+  return `You are an expert e-commerce market researcher. Generate a Saint Graal research doc + customer avatar.
 
-BRAND: ${data.name}
-PRODUCT: ${data.product}
-MARKET: ${market}
-PRICE: ${data.price}
-ANGLE: ${data.angle || 'TBD'}
-CONTEXT: ${data.context || 'None'}
-COMPETITORS: ${competitors || 'None'}
-SECTIONS TO GENERATE: ${sections}
+BRAND: ${data.name} | PRODUCT: ${data.product} | MARKET: ${market} | PRICE: ${data.price}
+ANGLE: ${data.angle || 'TBD'} | CONTEXT: ${data.context || 'None'}
+SECTIONS: ${sections}
 
-Return ONLY valid JSON with this structure:
-{
-  "results": {
-    "sections": {
-      ${data.sections.map(s => `"${s}": {"title": "${SECTION_LABELS[s]}", "content": "...", "subsections": [{"title": "...", "items": ["...", "..."]}]}`).join(',\n      ')}
-    },
-    "generatedAt": "${new Date().toISOString()}"
-  },
-  "avatar": {
-    "demographics": "...",
-    "psychographics": "...",
-    "pain_points": ["...", "..."],
-    "desires": ["...", "..."],
-    "triggers": ["...", "..."],
-    "objections": ["...", "..."],
-    "buying_journey": "...",
-    "language_patterns": ["...", "..."],
-    "generatedAt": "${new Date().toISOString()}"
-  }
-}
+Return ONLY this JSON (no markdown, no explanation):
+{"results":{"sections":{${data.sections.map(s => `"${s}":{"title":"${SECTION_LABELS[s]}","content":"...","subsections":[{"title":"...","items":["...","..."]}]}`).join(',')}},"generatedAt":"${new Date().toISOString()}"},"avatar":{"demographics":"...","psychographics":"...","pain_points":["...","...","..."],"desires":["...","...","..."],"triggers":["...","..."],"objections":["...","..."],"buying_journey":"...","language_patterns":["...","...","..."],"generatedAt":"${new Date().toISOString()}"}}
 
-Be specific, concrete, and actionable. No generic content. Write in the language of the market (French for FR, English for US/DE).`;
+Be specific and concrete for ${data.product} in ${market} at ${data.price}.`;
 }
 
 function extractJSON(text: string): { results: unknown; avatar: unknown } {
-  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const raw = fenceMatch ? fenceMatch[1].trim() : text.trim();
-  const start = raw.indexOf('{');
-  const end = raw.lastIndexOf('}');
-  if (start === -1 || end === -1) throw new Error('No JSON found in response');
-  return JSON.parse(raw.slice(start, end + 1));
+  const clean = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  const start = clean.indexOf('{');
+  const end = clean.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error(`No JSON found. Response was: ${clean.slice(0, 200)}`);
+  return JSON.parse(clean.slice(start, end + 1));
 }
 
 export async function POST(req: Request) {
@@ -65,16 +39,16 @@ export async function POST(req: Request) {
 
     const response = await anthropic.messages.create({
       model: MODEL,
-      max_tokens: 3000,
-      messages: [{ role: 'user', content: buildCombinedPrompt(body) }],
+      max_tokens: 2000,
+      messages: [{ role: 'user', content: buildPrompt(body) }],
     });
 
     const text = response.content[0].type === 'text' ? response.content[0].text : '';
     const parsed = extractJSON(text);
-
     return NextResponse.json(parsed);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Generation failed';
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Generate error:', message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
